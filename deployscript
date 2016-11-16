@@ -1,0 +1,45 @@
+#!/bin/bash -x
+echo "pull artifacts and deploy"
+if [ $# -ne 2 ]
+then
+    echo "please give the release/branch name and be/fe/report"
+else
+        cd artifacts
+        rm -rf *
+        echo "pull code from s3 for " $1
+        t=$(date "+%Y.%m.%d-%H.%M.%S")
+        aws s3 sync s3://eagree-prod-files/release/$1/ .
+        if [ "$2" = "be" ]
+        then
+                echo "deploying be " $1
+                scp backend_api.tar.gz -p6582 deploy@10.20.4.74:/home/e-agree
+                ssh -p6582 deploy@10.20.4.74 '/scripts/deploy.sh'
+#               for pid in $(ps -ef | awk '/rails/ {print $2}'); do sudo kill -9 $pid; done;
+#               cd /home/e-agree
+#               rm -rf e-Agree-2015
+#               tar -zxf backend_api.tar.gz
+#               cd eagree
+#               eagree_logs="/tmp/eagree-be-"$t".log"
+#               nohup rvmsudo rails server -p 80 >> $eagree_logs &
+#               echo "rails server started; log at " $eagree_logs
+        fi
+        if [  "$2" = "fe" ]
+        then
+                echo "deploying fe " $1
+                rm -rf e-agree-ui
+                tar -zxf frontend.tar.gz
+                sudo rm -rf /var/www/html/*
+                sudo cp -R dist/* /var/www/html
+        fi
+        if [  "$2" = "report" ]
+        then
+                echo "deploying report " $1
+                for pid in $(ps -ef | awk '/java/ {print $2}'); do sudo kill -9 $pid; done
+                rm -rf eagree-reports $r
+                tar -zxf reports.tar.gz
+                eagree_logs="/tmp/eagree-reports-"$t".log"
+                nohup java -jar reports-0.0.1-SNAPSHOT.jar  >>  $eagree_logs &
+                echo "report server started; log at " $eagree_logs &
+        fi
+fi
+

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+
+# Stores all arguments to an array
+DIRS="/var/log/sysstat /home/deploy"
+
+# Destination bucket
+BUCKET="eagree-prod-backup"
+
+# Declaring year month and date
+read YEAR MONTH DAY <<<$(date "+%Y %m %d")
+
+# Logfile declaration
+BACKUPDIR="/var/log/backup.log.d"
+if [ -d ${BACKUPDIR} ]; then
+        LOGFILE="${BACKUPDIR}/${YEAR}_${MONTH}_${DAY}.log"
+else
+        mkdir -p ${BACKUPDIR} >/dev/null 2>&1 && LOGFILE="${BACKUPDIR}/${YEAR}_${MONTH}_${DAY}.log" || LOGFILE="/dev/null"
+        [ ! -d ${BACKUPDIR} ] && echo "Could not create log directory, backup will continue without logging."
+fi
+
+STARTT=`date +%s`
+echo -e "\e[1;33m[`date +"%m-%d-%Y-%T"`] The upload has been started...\e[0m"
+for DIR in ${DIRS}; do
+        echo "$DIR"
+        /usr/local/bin/aws s3 sync $DIR s3://${BUCKET}/${YEAR}/${MONTH}/${DAY}/${HOSTNAME}${DIR} --sse >>${LOGFILE} 2>&1
+done
+if [ $? -ne 0 ];then
+#echo "Please check Log file for more details" |mail -s "E-agree Daily Backup Failed" "servicedesk@dinoct.com"
+echo "Please check Log file for more details" |mail -s "E-agree Daily Backup Failed" -r "alerts@dinoct.com" "servicedesk@dinoct.com"
+else
+ENDT=`date +%s`
+TOTAL=$(( $ENDT - $STARTT))
+echo -e "\e[1;32m[`date +"%m-%d-%Y-%T"`] Backup completed successfully in `date -u -d @$TOTAL +"%T"` hours\e[0m"
+fi
+
